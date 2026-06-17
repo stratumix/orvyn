@@ -10,6 +10,7 @@ use crate::api::{
 
 mod about;
 mod containers;
+mod structures;
 
 pub async fn run_api() {
     let server = HttpServer::new(|| {

@@ -1,11 +1,15 @@
 use actix_web::{HttpResponse, Responder, get, post, web};
 use containerd_client::{
     services::v1::{Container, CreateContainerRequest, GetContainerRequest, ListContainersRequest},
-    tonic::{Request, metadata::MetadataValue},
+    tonic::{
+        Code::{self},
+        Request,
+        metadata::MetadataValue,
+    },
 };
 use tracing::error;
 
-use crate::instances::get_containers_client;
+use crate::{api::structures::ErrorResponse, instances::get_containers_client};
 
 #[get("/containers")]
 async fn list_containers() -> impl Responder {
@@ -47,9 +51,12 @@ async fn get_container(path: web::Path<String>) -> impl Responder {
 
     match client.get(request).await {
         Ok(resp) => HttpResponse::Ok().json(resp.into_inner()),
+        Err(err) if err.code() == Code::NotFound => HttpResponse::NotFound().json(ErrorResponse {
+            message: "Container with this id does not exist".to_string(),
+        }),
         Err(err) => {
             error!(?err, "Failed get container");
-            HttpResponse::InternalServerError().finish()
+            HttpResponse::InternalServerError().json(ErrorResponse::default())
         }
     }
 }
@@ -68,10 +75,15 @@ async fn new_container(body: web::Json<Container>) -> impl Responder {
     );
 
     match client.create(request).await {
-        Ok(_resp) => HttpResponse::Created().finish(),
+        Ok(_) => HttpResponse::Created().finish(),
+        Err(err) if err.code() == Code::AlreadyExists => {
+            HttpResponse::Conflict().json(ErrorResponse {
+                message: "Container with this id already exists".to_string(),
+            })
+        }
         Err(err) => {
             error!(?err, "Failed to create container");
-            HttpResponse::InternalServerError().finish()
+            HttpResponse::InternalServerError().json(ErrorResponse::default())
         }
     }
 }

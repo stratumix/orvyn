@@ -1,5 +1,4 @@
 mod api;
-mod data;
 mod instances;
 
 use tracing_subscriber::EnvFilter;
