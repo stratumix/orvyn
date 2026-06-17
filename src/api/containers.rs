@@ -1,6 +1,9 @@
-use actix_web::{HttpResponse, Responder, get, post, web};
+use actix_web::{HttpResponse, Responder, delete, get, patch, post, web};
 use containerd_client::{
-    services::v1::{Container, CreateContainerRequest, GetContainerRequest, ListContainersRequest},
+    services::v1::{
+        Container, CreateContainerRequest, DeleteContainerRequest, GetContainerRequest,
+        ListContainersRequest, UpdateContainerRequest,
+    },
     tonic::{
         Code::{self},
         Request,
@@ -55,7 +58,7 @@ async fn get_container(path: web::Path<String>) -> impl Responder {
             message: "Container with this id does not exist".to_string(),
         }),
         Err(err) => {
-            error!(?err, "Failed get container");
+            error!(?err, "Failed to get container");
             HttpResponse::InternalServerError().json(ErrorResponse::default())
         }
     }
@@ -83,6 +86,52 @@ async fn new_container(body: web::Json<Container>) -> impl Responder {
         }
         Err(err) => {
             error!(?err, "Failed to create container");
+            HttpResponse::InternalServerError().json(ErrorResponse::default())
+        }
+    }
+}
+
+#[patch("/containers")]
+async fn update_container(body: web::Json<UpdateContainerRequest>) -> impl Responder {
+    let request = body.into_inner();
+
+    let mut client = get_containers_client().await;
+    let mut request = Request::new(request);
+    request.metadata_mut().insert(
+        "containerd-namespace",
+        MetadataValue::from_static("default"),
+    );
+
+    match client.update(request).await {
+        Ok(_) => HttpResponse::NoContent().finish(),
+        Err(err) if err.code() == Code::NotFound => HttpResponse::NotFound().json(ErrorResponse {
+            message: "Container with this id does not exist".to_string(),
+        }),
+        Err(err) => {
+            error!(?err, "Failed to update container");
+            HttpResponse::InternalServerError().json(ErrorResponse::default())
+        }
+    }
+}
+
+#[delete("/containers/{id}")]
+async fn delete_container(path: web::Path<String>) -> impl Responder {
+    let id = path.into_inner().to_string();
+
+    let mut client = get_containers_client().await;
+    let mut request = Request::new(DeleteContainerRequest { id });
+    request.metadata_mut().insert(
+        "containerd-namespace",
+        MetadataValue::from_static("default"),
+    );
+
+    match client.delete(request).await {
+        Ok(_) => HttpResponse::NoContent().finish(),
+        Err(err) if err.code() == Code::NotFound => HttpResponse::NotFound().json(ErrorResponse {
+            message: "Container with this id does not exist".to_string(),
+        }),
+        Err(err) => {
+            error!(?err, "Failed to delete container");
             HttpResponse::InternalServerError().json(ErrorResponse::default())
         }
     }

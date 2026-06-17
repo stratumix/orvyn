@@ -5,7 +5,9 @@ use tracing::{error, info};
 
 use crate::api::{
     about::version,
-    containers::{get_container, list_containers, new_container},
+    containers::{
+        delete_container, get_container, list_containers, new_container, update_container,
+    },
 };
 
 mod about;
@@ -18,7 +20,9 @@ pub async fn run_api() {
             .service(version)
             .service(list_containers)
             .service(get_container)
+            .service(update_container)
             .service(new_container)
+            .service(delete_container)
     })
     .bind(("127.0.0.1", 8080));
 
