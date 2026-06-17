@@ -1,11 +1,16 @@
-pub(crate) mod api;
-pub(crate) mod instances;
+mod api;
+mod data;
+mod instances;
+
+use tracing_subscriber::EnvFilter;
 
 use crate::api::run_api;
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::new("info"))
+        .init();
 
     run_api().await;
 }
